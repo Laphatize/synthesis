@@ -14,4 +14,67 @@ model User {
   name      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  ownedWorkspaces Workspace[] @relation("WorkspaceOwner")
+  memberships     WorkspaceMember[]
+}
+
+model Workspace {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner      User               @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members    WorkspaceMember[]
+  items      WorkspaceItem[]
+  embeddings Embedding[]
+}
+
+model WorkspaceMember {
+  id          String   @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        String   @default("member")
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+}
+
+model WorkspaceItem {
+  id          String   @id @default(cuid())
+  workspaceId String
+  type        String
+  title       String?
+  content     String?
+  url         String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace  Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  embeddings Embedding[]
+
+  @@index([workspaceId, type])
+}
+
+model Embedding {
+  id          String   @id @default(cuid())
+  workspaceId String
+  itemId      String?
+  content     String
+  vector      Float[]
+  dimensions  Int
+  model       String
+  createdAt   DateTime @default(now())
+
+  workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  item      WorkspaceItem? @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([itemId])
 }

@@ -3,6 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const authRoutes = require("./routes/auth");
+const workspaceRoutes = require("./routes/workspaces");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -14,6 +15,7 @@ app.use(cookieParser());
 
 // Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/workspaces", workspaceRoutes);
 
 // Health check
 app.get("/api/health", (_req, res) => {
