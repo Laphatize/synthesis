@@ -1,10 +1,13 @@
 const express = require("express");
+const multer = require("multer");
 const prisma = require("../lib/prisma");
 const { authenticate } = require("../middleware/auth");
 const { embedText, chunkText } = require("../lib/embeddings");
 const { cosineSimilarity } = require("../lib/vector");
+const { chatCompletion } = require("../lib/llm");
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 router.use(authenticate);
 
@@ -224,12 +227,41 @@ router.patch("/:workspaceId/items/:itemId", async (req, res) => {
       data,
     });
 
+    // Auto-embed on content change (fire-and-forget)
+    if (content !== undefined && content) {
+      embedItemInBackground(workspaceId, itemId, content).catch(() => {});
+    }
+
     return res.json({ item });
   } catch (err) {
     console.error("Workspace item update error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 });
+
+/**
+ * Re-embeds a workspace item. Deletes old embeddings, creates new ones.
+ */
+async function embedItemInBackground(workspaceId, itemId, content) {
+  try {
+    // Strip HTML tags for embedding
+    const plainText = content.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    if (!plainText || plainText.length < 20) return;
+
+    // Delete old embeddings for this item
+    await prisma.embedding.deleteMany({ where: { itemId } });
+
+    const chunks = chunkText(plainText);
+    for (const chunk of chunks) {
+      const { vector, model, dimensions } = await embedText(chunk);
+      await prisma.embedding.create({
+        data: { workspaceId, itemId, content: chunk, vector, model, dimensions },
+      });
+    }
+  } catch (err) {
+    console.error("Background embed error:", err.message);
+  }
+}
 
 // DELETE /api/workspaces/:workspaceId/items/:itemId
 router.delete("/:workspaceId/items/:itemId", async (req, res) => {
@@ -353,3 +385,179 @@ router.post("/:workspaceId/search", async (req, res) => {
 });
 
 module.exports = router;
+
+// ─── File upload ─────────────────────────────────────────────────────────────
+
+/**
+ * POST /api/workspaces/:workspaceId/upload
+ * Multipart form: file (required), title (optional)
+ * Supports: CSV, JSON, TXT, MD, TSV, XML and other text-based files.
+ * Stores file content as a workspace item of type "file" and auto-embeds.
+ */
+router.post("/:workspaceId/upload", upload.single("file"), async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { workspaceId } = req.params;
+
+    const workspace = await getWorkspaceForUser(workspaceId, userId);
+    if (!workspace) return res.status(404).json({ error: "Workspace not found" });
+
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
+    const fileName = req.file.originalname || "Uploaded file";
+    const mimeType = req.file.mimetype || "text/plain";
+    const fileContent = req.file.buffer.toString("utf-8");
+    const fileTitle = req.body.title || fileName;
+    const fileSize = req.file.size;
+
+    // Determine item type from extension
+    const ext = fileName.split(".").pop().toLowerCase();
+    const typeMap = {
+      csv: "dataset", tsv: "dataset", json: "dataset", xml: "dataset",
+      txt: "reference", md: "reference", tex: "reference", bib: "reference",
+    };
+    const itemType = typeMap[ext] || "file";
+
+    const item = await prisma.workspaceItem.create({
+      data: {
+        workspaceId,
+        type: itemType,
+        title: fileTitle,
+        content: fileContent,
+        metadata: { fileName, mimeType, fileSize, extension: ext },
+      },
+    });
+
+    // Auto-embed in background
+    embedItemInBackground(workspaceId, item.id, fileContent).catch(() => {});
+
+    return res.status(201).json({ item });
+  } catch (err) {
+    console.error("File upload error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ─── Genie: AI research assistant with RAG ──────────────────────────────────
+
+/**
+ * POST /api/workspaces/:workspaceId/genie
+ * Body: { message: string, history?: [{ role, content }] }
+ * Uses vector search over workspace items for context, then LLM.
+ * Can also generate data files when asked.
+ */
+router.post("/:workspaceId/genie", async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { workspaceId } = req.params;
+    const { message, history = [] } = req.body;
+
+    if (!message?.trim()) return res.status(400).json({ error: "message is required" });
+
+    const workspace = await getWorkspaceForUser(workspaceId, userId);
+    if (!workspace) return res.status(404).json({ error: "Workspace not found" });
+
+    // RAG: search workspace embeddings for relevant context
+    let contextChunks = [];
+    try {
+      const { vector: queryVector, dimensions } = await embedText(message);
+      const embeddings = await prisma.embedding.findMany({
+        where: { workspaceId },
+        include: { item: { select: { id: true, title: true, type: true } } },
+      });
+
+      contextChunks = embeddings
+        .filter((e) => e.dimensions === dimensions)
+        .map((e) => ({
+          score: cosineSimilarity(queryVector, e.vector),
+          content: e.content,
+          itemTitle: e.item?.title,
+          itemType: e.item?.type,
+        }))
+        .filter((r) => r.score > 0.1)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 8);
+    } catch {
+      // If embedding fails, continue without context
+    }
+
+    const contextBlock = contextChunks.length > 0
+      ? `\n\nRelevant workspace content:\n${contextChunks.map((c, i) =>
+          `[${c.itemType}: ${c.itemTitle}] ${c.content}`
+        ).join("\n\n")}`
+      : "";
+
+    const messages = [
+      {
+        role: "system",
+        content: `You are Genie, an AI research assistant inside a workspace called "${workspace.name}" in Synthesis. You have access to the workspace's documents, datasets, and references through semantic search.
+
+Your capabilities:
+1. Answer questions about workspace content using the context provided
+2. Find connections between documents and data
+3. When asked to find or generate example data, respond with a special JSON block that will create a file in the workspace
+
+When creating data files, wrap them in a tagged block like this:
+\`\`\`genie-file
+{"title": "filename.csv", "type": "dataset", "content": "col1,col2\\nval1,val2\\n..."}
+\`\`\`
+
+Use markdown formatting in your responses. Be concise and helpful.${contextBlock}`,
+      },
+      ...history.slice(-10),
+      { role: "user", content: message },
+    ];
+
+    const reply = await chatCompletion(messages, { temperature: 0.5, maxTokens: 2048 });
+
+    // Parse any genie-file blocks from the response
+    const fileBlocks = [];
+    const fileRegex = /```genie-file\s*\n([\s\S]*?)```/g;
+    let match;
+    while ((match = fileRegex.exec(reply)) !== null) {
+      try {
+        const fileData = JSON.parse(match[1].trim());
+        if (fileData.title && fileData.content) {
+          fileBlocks.push(fileData);
+        }
+      } catch {
+        // skip malformed blocks
+      }
+    }
+
+    // Create any files Genie generated
+    const createdItems = [];
+    for (const fileData of fileBlocks) {
+      try {
+        const item = await prisma.workspaceItem.create({
+          data: {
+            workspaceId,
+            type: fileData.type || "dataset",
+            title: fileData.title,
+            content: fileData.content,
+            metadata: { createdBy: "genie" },
+          },
+        });
+        createdItems.push(item);
+        // Auto-embed
+        embedItemInBackground(workspaceId, item.id, fileData.content).catch(() => {});
+      } catch {
+        // skip
+      }
+    }
+
+    // Clean up the reply - replace file blocks with a cleaner reference
+    let cleanReply = reply;
+    for (const fileData of fileBlocks) {
+      cleanReply = cleanReply.replace(
+        /```genie-file\s*\n[\s\S]*?```/,
+        `📎 Created file: **${fileData.title}**`
+      );
+    }
+
+    res.json({ reply: cleanReply, createdItems });
+  } catch (err) {
+    console.error("Genie error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});

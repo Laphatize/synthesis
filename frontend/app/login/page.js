@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../lib/auth-context";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -13,7 +13,11 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  if (!loading && user) { router.replace("/dashboard"); return null; }
+  useEffect(() => {
+    if (!loading && user) router.replace("/dashboard");
+  }, [loading, user, router]);
+
+  if (!loading && user) return null;
 
   async function handleSubmit(e) {
     e.preventDefault();

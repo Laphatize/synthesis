@@ -4,6 +4,7 @@ const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const authRoutes = require("./routes/auth");
 const workspaceRoutes = require("./routes/workspaces");
+const arxivRoutes = require("./routes/arxiv");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -16,6 +17,7 @@ app.use(cookieParser());
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/workspaces", workspaceRoutes);
+app.use("/api/arxiv", arxivRoutes);
 
 // Health check
 app.get("/api/health", (_req, res) => {

@@ -3,9 +3,11 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useAuth } from "../../lib/auth-context";
 import { apiFetch } from "../../lib/api";
+import { useArxivSuggestions } from "../../lib/use-arxiv";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import Editor from "../../components/Editor";
+import PapersSidebar from "../../components/PapersSidebar";
 
 export default function WorkspacePage() {
   const { user, token, loading } = useAuth();
@@ -19,6 +21,10 @@ export default function WorkspacePage() {
   const [loadingWs, setLoadingWs] = useState(true);
   const [saving, setSaving] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [papersOpen, setPapersOpen] = useState(true);
+  const [editorText, setEditorText] = useState("");
+
+  const { papers, loading: papersLoading, query: papersQuery } = useArxivSuggestions(editorText);
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
@@ -208,6 +214,15 @@ export default function WorkspacePage() {
             {saving && (
               <span className="text-[10px] text-[var(--muted)]">Saving…</span>
             )}
+            <button
+              onClick={() => setPapersOpen(!papersOpen)}
+              className={`text-xs transition ${
+                papersOpen ? "text-[var(--fg)]" : "text-[var(--muted)] hover:text-[var(--fg)]"
+              }`}
+              title="Toggle research papers"
+            >
+              📄 Papers
+            </button>
           </div>
         </div>
 
@@ -217,6 +232,7 @@ export default function WorkspacePage() {
             key={activeItemId}
             content={activeItem.content || ""}
             onUpdate={handleUpdateContent}
+            onTextChange={setEditorText}
             placeholder="Start writing…"
           />
         ) : (
@@ -239,6 +255,15 @@ export default function WorkspacePage() {
           </div>
         )}
       </main>
+
+      {/* Research papers sidebar */}
+      <PapersSidebar
+        papers={papers}
+        loading={papersLoading}
+        query={papersQuery}
+        open={papersOpen}
+        onToggle={() => setPapersOpen(false)}
+      />
     </div>
   );
 }

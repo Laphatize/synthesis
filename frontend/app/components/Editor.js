@@ -6,10 +6,11 @@ import Placeholder from "@tiptap/extension-placeholder";
 import Typography from "@tiptap/extension-typography";
 import { useEffect, useRef } from "react";
 
-export default function Editor({ content, onUpdate, placeholder = "Start writing…" }) {
+export default function Editor({ content, onUpdate, onTextChange, placeholder = "Start writing…" }) {
   const debounceRef = useRef(null);
 
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
@@ -31,6 +32,8 @@ export default function Editor({ content, onUpdate, placeholder = "Start writing
       debounceRef.current = setTimeout(() => {
         onUpdate(editor.getHTML());
       }, 500);
+      // Plain text for AI features (immediate)
+      if (onTextChange) onTextChange(editor.getText());
     },
   });
 
