@@ -194,6 +194,70 @@ router.post("/:workspaceId/items", async (req, res) => {
   }
 });
 
+// PATCH /api/workspaces/:workspaceId/items/:itemId
+router.patch("/:workspaceId/items/:itemId", async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { workspaceId, itemId } = req.params;
+    const { title, content, url, metadata } = req.body;
+
+    const workspace = await getWorkspaceForUser(workspaceId, userId);
+    if (!workspace) {
+      return res.status(404).json({ error: "Workspace not found" });
+    }
+
+    const existing = await prisma.workspaceItem.findFirst({
+      where: { id: itemId, workspaceId },
+    });
+    if (!existing) {
+      return res.status(404).json({ error: "Item not found" });
+    }
+
+    const data = {};
+    if (title !== undefined) data.title = title;
+    if (content !== undefined) data.content = content;
+    if (url !== undefined) data.url = url;
+    if (metadata !== undefined) data.metadata = metadata;
+
+    const item = await prisma.workspaceItem.update({
+      where: { id: itemId },
+      data,
+    });
+
+    return res.json({ item });
+  } catch (err) {
+    console.error("Workspace item update error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// DELETE /api/workspaces/:workspaceId/items/:itemId
+router.delete("/:workspaceId/items/:itemId", async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { workspaceId, itemId } = req.params;
+
+    const workspace = await getWorkspaceForUser(workspaceId, userId);
+    if (!workspace) {
+      return res.status(404).json({ error: "Workspace not found" });
+    }
+
+    const existing = await prisma.workspaceItem.findFirst({
+      where: { id: itemId, workspaceId },
+    });
+    if (!existing) {
+      return res.status(404).json({ error: "Item not found" });
+    }
+
+    await prisma.workspaceItem.delete({ where: { id: itemId } });
+
+    return res.json({ deleted: true });
+  } catch (err) {
+    console.error("Workspace item delete error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.post("/:workspaceId/items/:itemId/embeddings", async (req, res) => {
   try {
     const userId = req.user.userId;
