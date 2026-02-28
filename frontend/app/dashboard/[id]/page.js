@@ -7,8 +7,10 @@ import { useArxivSuggestions } from "../../lib/use-arxiv";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import Editor from "../../components/Editor";
+import FileViewer from "../../components/FileViewer";
 import PapersSidebar from "../../components/PapersSidebar";
 import NewDocModal from "../../components/NewDocModal";
+import GeniePanel from "../../components/GeniePanel";
 
 export default function WorkspacePage() {
   const { user, token, loading } = useAuth();
@@ -22,9 +24,15 @@ export default function WorkspacePage() {
   const [loadingWs, setLoadingWs] = useState(true);
   const [saving, setSaving] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [papersOpen, setPapersOpen] = useState(true);
+  const [papersOpen, setPapersOpen] = useState(false);
+  const [genieOpen, setGenieOpen] = useState(false);
   const [editorText, setEditorText] = useState("");
   const [showNewDoc, setShowNewDoc] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [toasts, setToasts] = useState([]);
+  const [flashItemIds, setFlashItemIds] = useState(new Set());
+  const fileInputRef = useRef(null);
+  const toastIdRef = useRef(0);
 
   const { papers, loading: papersLoading, query: papersQuery } = useArxivSuggestions(editorText);
 
@@ -42,7 +50,6 @@ export default function WorkspacePage() {
       setWorkspace(wsData.workspace);
       const fetchedItems = itemsData.items || [];
       setItems(fetchedItems);
-      // Auto-select first doc
       if (fetchedItems.length && !activeItemId) {
         setActiveItemId(fetchedItems[0].id);
       }
@@ -54,6 +61,23 @@ export default function WorkspacePage() {
   }, [token, workspaceId, activeItemId]);
 
   useEffect(() => { loadWorkspace(); }, [loadWorkspace]);
+
+  // Lightweight items-only refetch (preserves active selection)
+  const refreshItems = useCallback(async () => {
+    if (!token || !workspaceId) return;
+    try {
+      const data = await apiFetch(`/api/workspaces/${workspaceId}/items`, {}, token);
+      const fetched = data.items || [];
+      setItems(fetched);
+      // If active item was deleted, select first remaining
+      setActiveItemId((prev) => {
+        if (prev && fetched.some((i) => i.id === prev)) return prev;
+        return fetched.length ? fetched[0].id : null;
+      });
+    } catch {
+      // silent
+    }
+  }, [token, workspaceId]);
 
   const activeItem = items.find((i) => i.id === activeItemId) || null;
 
@@ -79,6 +103,8 @@ export default function WorkspacePage() {
       );
       setItems((prev) => [data.item, ...prev]);
       setActiveItemId(data.item.id);
+      flashItem(data.item.id);
+      pushToast({ action: "created", title: data.item.title, icon: "📝" });
     } catch {
       // silent
     }
@@ -120,11 +146,13 @@ export default function WorkspacePage() {
   }
 
   async function handleDeleteItem(itemId) {
+    const deletedItem = items.find((i) => i.id === itemId);
     setItems((prev) => prev.filter((i) => i.id !== itemId));
     if (activeItemId === itemId) {
       const remaining = items.filter((i) => i.id !== itemId);
       setActiveItemId(remaining.length ? remaining[0].id : null);
     }
+    if (deletedItem) pushToast({ action: "deleted", title: deletedItem.title, icon: "🗑" });
     try {
       await apiFetch(
         `/api/workspaces/${workspaceId}/items/${itemId}`,
@@ -134,6 +162,74 @@ export default function WorkspacePage() {
     } catch {
       // silent
     }
+  }
+
+  async function handleFileUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}/api/workspaces/${workspaceId}/upload`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!res.ok) throw new Error("Upload failed");
+      const data = await res.json();
+      setItems((prev) => [data.item, ...prev]);
+      setActiveItemId(data.item.id);
+      flashItem(data.item.id);
+      pushToast({ action: "uploaded", title: data.item.title, icon: "↑" });
+    } catch {
+      // silent
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  function handleGenieMutations({ createdItems, updatedItems, deletedItems }) {
+    // Show toasts + flashes for each action
+    if (createdItems?.length) {
+      createdItems.forEach((item) => {
+        flashItem(item.id);
+        pushToast({ action: "created", title: item.title, icon: "📎" });
+      });
+    }
+    if (updatedItems?.length) {
+      updatedItems.forEach((item) => {
+        flashItem(item.id);
+        pushToast({ action: "updated", title: item.title, icon: "✏️" });
+      });
+    }
+    if (deletedItems?.length) {
+      deletedItems.forEach((item) => {
+        pushToast({ action: "deleted", title: item.title, icon: "🗑" });
+      });
+    }
+    // Refetch from server to ensure sidebar is in sync
+    refreshItems();
+  }
+
+  function pushToast({ action, title, icon }) {
+    const id = ++toastIdRef.current;
+    setToasts((prev) => [...prev, { id, action, title, icon }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3500);
+  }
+
+  function flashItem(itemId) {
+    setFlashItemIds((prev) => new Set(prev).add(itemId));
+    setTimeout(() => {
+      setFlashItemIds((prev) => {
+        const next = new Set(prev);
+        next.delete(itemId);
+        return next;
+      });
+    }, 1500);
   }
 
   if (loading || !user) return null;
@@ -170,12 +266,28 @@ export default function WorkspacePage() {
           >
             ← Back
           </Link>
-          <button
-            onClick={handleCreateDoc}
-            className="text-xs font-medium text-[var(--fg)] transition hover:opacity-60"
-          >
-            + New
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="text-xs text-[var(--muted)] transition hover:text-[var(--fg)]"
+              title="Upload file"
+            >
+              {uploading ? "…" : "↑"}
+            </button>
+            <button
+              onClick={handleCreateDoc}
+              className="text-xs font-medium text-[var(--fg)] transition hover:opacity-60"
+            >
+              + New
+            </button>
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            accept=".csv,.tsv,.json,.txt,.md,.tex,.bib,.xml"
+            onChange={handleFileUpload}
+          />
         </div>
 
         <div className="px-4 pb-2">
@@ -193,6 +305,7 @@ export default function WorkspacePage() {
                 key={item.id}
                 item={item}
                 active={item.id === activeItemId}
+                flashing={flashItemIds.has(item.id)}
                 onSelect={() => setActiveItemId(item.id)}
                 onRename={(title) => handleRenameItem(item.id, title)}
                 onDelete={() => handleDeleteItem(item.id)}
@@ -222,7 +335,16 @@ export default function WorkspacePage() {
               <span className="text-[10px] text-[var(--muted)]">Saving…</span>
             )}
             <button
-              onClick={() => setPapersOpen(!papersOpen)}
+              onClick={() => { setGenieOpen(!genieOpen); if (!genieOpen) setPapersOpen(false); }}
+              className={`text-xs transition ${
+                genieOpen ? "text-[var(--fg)]" : "text-[var(--muted)] hover:text-[var(--fg)]"
+              }`}
+              title="Toggle Genie assistant"
+            >
+              ✨ Genie
+            </button>
+            <button
+              onClick={() => { setPapersOpen(!papersOpen); if (!papersOpen) setGenieOpen(false); }}
               className={`text-xs transition ${
                 papersOpen ? "text-[var(--fg)]" : "text-[var(--muted)] hover:text-[var(--fg)]"
               }`}
@@ -233,15 +355,19 @@ export default function WorkspacePage() {
           </div>
         </div>
 
-        {/* Editor */}
+        {/* Editor or File Viewer */}
         {activeItem ? (
-          <Editor
-            key={activeItemId}
-            content={activeItem.content || ""}
-            onUpdate={handleUpdateContent}
-            onTextChange={setEditorText}
-            placeholder="Start writing…"
-          />
+          activeItem.type === "note" ? (
+            <Editor
+              key={activeItemId}
+              content={activeItem.content || ""}
+              onUpdate={handleUpdateContent}
+              onTextChange={setEditorText}
+              placeholder="Start writing…"
+            />
+          ) : (
+            <FileViewer key={`${activeItemId}-${activeItem.updatedAt || activeItem.content?.length}`} item={activeItem} />
+          )
         ) : (
           <div className="flex flex-1 items-center justify-center">
             <div className="text-center">
@@ -273,6 +399,15 @@ export default function WorkspacePage() {
         userText={editorText}
       />
 
+      {/* Genie panel */}
+      <GeniePanel
+        workspaceId={workspaceId}
+        token={token}
+        open={genieOpen}
+        onClose={() => setGenieOpen(false)}
+        onMutations={handleGenieMutations}
+      />
+
       {/* New doc modal */}
       {showNewDoc && (
         <NewDocModal
@@ -282,14 +417,32 @@ export default function WorkspacePage() {
           onClose={() => setShowNewDoc(false)}
         />
       )}
+
+      {/* Cursor-style toasts */}
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none">
+        {toasts.map((t) => (
+          <div
+            key={t.id}
+            className="genie-toast pointer-events-auto flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 shadow-lg"
+          >
+            <span className="text-sm">{t.icon}</span>
+            <span className="text-xs">
+              <span className="text-[var(--muted)] capitalize">{t.action}</span>{" "}
+              <span className="font-medium">{t.title}</span>
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
-function SidebarItem({ item, active, onSelect, onRename, onDelete }) {
+function SidebarItem({ item, active, flashing, onSelect, onRename, onDelete }) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(item.title || "Untitled");
   const inputRef = useRef(null);
+
+  const typeIcon = { note: "📝", dataset: "📊", reference: "📎", file: "📄" }[item.type] || "📄";
 
   useEffect(() => {
     if (editing && inputRef.current) {
@@ -307,11 +460,12 @@ function SidebarItem({ item, active, onSelect, onRename, onDelete }) {
 
   return (
     <div
-      className={`group flex items-center gap-1 px-4 py-1.5 text-sm transition cursor-pointer ${
+      className={`group flex items-center gap-1.5 px-4 py-1.5 text-sm transition cursor-pointer ${
         active ? "bg-[#f0f0f0] font-medium" : "text-[var(--muted)] hover:bg-[#f8f8f8]"
-      }`}
+      } ${flashing ? "sidebar-item-flash" : ""}`}
       onClick={onSelect}
     >
+      <span className="flex-shrink-0 text-[11px]">{typeIcon}</span>
       {editing ? (
         <input
           ref={inputRef}
