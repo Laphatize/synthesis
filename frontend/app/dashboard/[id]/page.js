@@ -8,6 +8,7 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import Editor from "../../components/Editor";
 import PapersSidebar from "../../components/PapersSidebar";
+import NewDocModal from "../../components/NewDocModal";
 
 export default function WorkspacePage() {
   const { user, token, loading } = useAuth();
@@ -23,6 +24,7 @@ export default function WorkspacePage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [papersOpen, setPapersOpen] = useState(true);
   const [editorText, setEditorText] = useState("");
+  const [showNewDoc, setShowNewDoc] = useState(false);
 
   const { papers, loading: papersLoading, query: papersQuery } = useArxivSuggestions(editorText);
 
@@ -56,6 +58,11 @@ export default function WorkspacePage() {
   const activeItem = items.find((i) => i.id === activeItemId) || null;
 
   async function handleCreateDoc() {
+    setShowNewDoc(true);
+  }
+
+  async function handleNewDocCreated({ title, content }) {
+    setShowNewDoc(false);
     try {
       const data = await apiFetch(
         `/api/workspaces/${workspaceId}/items`,
@@ -63,8 +70,8 @@ export default function WorkspacePage() {
           method: "POST",
           body: JSON.stringify({
             type: "note",
-            title: "Untitled",
-            content: "",
+            title: title || "Untitled",
+            content: content || "",
             autoEmbed: false,
           }),
         },
@@ -263,7 +270,18 @@ export default function WorkspacePage() {
         query={papersQuery}
         open={papersOpen}
         onToggle={() => setPapersOpen(false)}
+        userText={editorText}
       />
+
+      {/* New doc modal */}
+      {showNewDoc && (
+        <NewDocModal
+          workspaceId={workspaceId}
+          token={token}
+          onCreated={handleNewDocCreated}
+          onClose={() => setShowNewDoc(false)}
+        />
+      )}
     </div>
   );
 }

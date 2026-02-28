@@ -5,6 +5,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Typography from "@tiptap/extension-typography";
 import { useEffect, useRef } from "react";
+import AIBubbleMenu from "./AIBubbleMenu";
 
 export default function Editor({ content, onUpdate, onTextChange, placeholder = "Start writing…" }) {
   const debounceRef = useRef(null);
@@ -114,8 +115,9 @@ export default function Editor({ content, onUpdate, onTextChange, placeholder = 
       </div>
 
       {/* Editor area */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 sm:px-10 md:px-16 lg:px-24">
+      <div className="relative flex-1 overflow-y-auto px-6 py-4 sm:px-10 md:px-16 lg:px-24">
         <div className="mx-auto max-w-2xl">
+          <AIBubbleMenu editor={editor} />
           <EditorContent editor={editor} />
         </div>
       </div>
