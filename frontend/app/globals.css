@@ -1,26 +1,87 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #fdfdfd;
+  --fg: #111;
+  --muted: #888;
+  --border: #e5e5e5;
+  --accent: #111;
+  --surface: #fff;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--bg);
+  --color-foreground: var(--fg);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+* { box-sizing: border-box; }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body), system-ui, -apple-system, sans-serif;
 }
+
+a { color: inherit; text-decoration: none; }
+
+/* Tiptap editor */
+.tiptap {
+  outline: none;
+  min-height: 60vh;
+  font-size: 16px;
+  line-height: 1.7;
+  caret-color: var(--fg);
+}
+
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--muted);
+  pointer-events: none;
+  height: 0;
+}
+
+.tiptap h1 { font-size: 2em; font-weight: 700; margin: 1em 0 0.4em; line-height: 1.2; }
+.tiptap h2 { font-size: 1.5em; font-weight: 600; margin: 0.8em 0 0.3em; line-height: 1.3; }
+.tiptap h3 { font-size: 1.25em; font-weight: 600; margin: 0.6em 0 0.2em; line-height: 1.4; }
+.tiptap p { margin: 0 0 0.6em; }
+.tiptap ul, .tiptap ol { padding-left: 1.4em; margin: 0 0 0.6em; }
+.tiptap li { margin: 0.15em 0; }
+.tiptap blockquote {
+  border-left: 3px solid var(--border);
+  padding-left: 1em;
+  margin: 0.6em 0;
+  color: var(--muted);
+}
+.tiptap code {
+  font-family: var(--font-mono), monospace;
+  background: #f4f4f4;
+  padding: 0.15em 0.35em;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+.tiptap pre {
+  background: #f8f8f8;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.8em 1em;
+  margin: 0.6em 0;
+  overflow-x: auto;
+}
+.tiptap pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: 0.85em;
+  line-height: 1.5;
+}
+.tiptap hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1.5em 0;
+}
+.tiptap strong { font-weight: 600; }
+.tiptap em { font-style: italic; }

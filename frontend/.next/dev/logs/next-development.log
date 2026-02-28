@@ -1,0 +1,75 @@
+[00:02:23.273] Browser ERROR   ./app/page.js:1:1
+Module not found: Can't resolve './components/WorkspaceClient'
+> 1 | import WorkspaceClient from "./components/WorkspaceClient";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  2 |
+  3 | export default function Home() {
+  4 |   const flowSteps = [
+
+https://nextjs.org/docs/messages/module-not-found
+[00:02:23.534] Browser ERROR   ./app/page.js:1:1
+Module not found: Can't resolve './components/WorkspaceClient'
+> 1 | import WorkspaceClient from "./components/WorkspaceClient";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  2 |
+  3 | export default function Home() {
+  4 |   const flowSteps = [
+
+https://nextjs.org/docs/messages/module-not-found
+[00:02:23.846] Server  ERROR   ⨯ Error: ENOENT: no such file or directory, open '/Users/laphatize/Documents/synthesis/frontend/.next/dev/server/app/login/page/build-manifest.json'
+[00:02:23.957] Browser ERROR   ./app/page.js:1:1
+Module not found: Can't resolve './components/WorkspaceClient'
+> 1 | import WorkspaceClient from "./components/WorkspaceClient";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  2 |
+  3 | export default function Home() {
+  4 |   const flowSteps = [
+
+https://nextjs.org/docs/messages/module-not-found
+[00:02:26.854] Server  LOG     ○ Compiling /_error ...
+[00:02:33.913] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:02:34.013] Browser ERROR   ./app/page.js:1:1
+Module not found: Can't resolve './components/WorkspaceClient'
+> 1 | import WorkspaceClient from "./components/WorkspaceClient";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  2 |
+  3 | export default function Home() {
+  4 |   const flowSteps = [
+
+https://nextjs.org/docs/messages/module-not-found
+[00:02:35.781] Server  ERROR   ⨯ Error: ENOENT: no such file or directory, open '/Users/laphatize/Documents/synthesis/frontend/.next/dev/server/app/_not-found/page/build-manifest.json'
+[00:03:24.696] Server  ERROR   ⨯ Error: ENOENT: no such file or directory, open '/Users/laphatize/Documents/synthesis/frontend/.next/dev/server/app/login/page/build-manifest.json'
+[00:03:38.983] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:03:39.279] Browser ERROR   ./app/page.js:1:1
+Module not found: Can't resolve './components/WorkspaceClient'
+> 1 | import WorkspaceClient from "./components/WorkspaceClient";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  2 |
+  3 | export default function Home() {
+  4 |   const flowSteps = [
+
+https://nextjs.org/docs/messages/module-not-found
+[00:03:48.951] Server  ERROR   ⨯ Error: ENOENT: no such file or directory, open '/Users/laphatize/Documents/synthesis/frontend/.next/dev/server/app/login/page/build-manifest.json'
+[00:04:02.880] Server  ERROR   ⨯ Error: ENOENT: no such file or directory, open '/Users/laphatize/Documents/synthesis/frontend/.next/dev/server/app/login/page/build-manifest.json'
+[00:04:08.384] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:04:08.484] Browser ERROR   ./app/page.js:1:1
+Module not found: Can't resolve './components/WorkspaceClient'
+> 1 | import WorkspaceClient from "./components/WorkspaceClient";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  2 |
+  3 | export default function Home() {
+  4 |   const flowSteps = [
+
+https://nextjs.org/docs/messages/module-not-found
+[00:04:18.341] Server  ERROR   ⨯ Error: ENOENT: no such file or directory, open '/Users/laphatize/Documents/synthesis/frontend/.next/dev/server/app/login/page/build-manifest.json'
+[00:04:21.049] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:04:21.153] Browser ERROR   ./app/page.js:1:1
+Module not found: Can't resolve './components/WorkspaceClient'
+> 1 | import WorkspaceClient from "./components/WorkspaceClient";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  2 |
+  3 | export default function Home() {
+  4 |   const flowSteps = [
+
+https://nextjs.org/docs/messages/module-not-found
+[00:04:31.019] Server  ERROR   ⨯ Error: ENOENT: no such file or directory, open '/Users/laphatize/Documents/synthesis/frontend/.next/dev/server/app/login/page/build-manifest.json'
